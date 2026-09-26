@@ -80,6 +80,15 @@ function install(r) {
     o.abolished = rec.at;
   });
 
+  // decision.electorate "office:ID": the office's current holders decide, one
+  // vote each. A council, a board, a party's central committee, a sole ruler.
+  r.registerElectorate({
+    name: 'office', module: 'offices',
+    describe: (id) => `the holders of the office ${id}`,
+    check: (state, id) => (!id ? 'name the office: office:ID' : !office(state, id) || office(state, id).abolished ? `there is no office ${id}` : null),
+    roll: (state, id, p, at) => Object.fromEntries(current(office(state, id), at).map(h => [h.id, 1])),
+  });
+
   r.registerKind({
     name: 'office.resign', module: 'offices',
     check(state, act) { return holds(state, act.office, act.by, act.at) ? null : `you do not hold ${act.office}`; },
@@ -87,4 +96,4 @@ function install(r) {
   });
 }
 
-export default { name: 'offices', install, holds, current, parameterKeys: ['offices.create_rule', 'offices.fill_rule', 'offices.term_limit'] };
+export default { name: 'offices', core: '0.4', install, holds, current, parameterKeys: ['offices.create_rule', 'offices.fill_rule', 'offices.term_limit'] };

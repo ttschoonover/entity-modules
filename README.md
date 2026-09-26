@@ -1,37 +1,28 @@
 # entity-modules
 
-Optional modules for `entity`. None is needed: an entity installs only the ones
-it decides to, and keeps its own copy of their code.
+The module pack for [entity](https://github.com/): one folder per module. Entities
+fetch a module from here only when their members install it by decision.
 
-    titles  vocabulary  offices  value  deeds  threads
+    titles  vocabulary  offices  value  deeds  threads  committees  authority
+    polls  badges  elections  lending  wiki  finality  shares  budget
+    meetings  tasks  shares  budget
 
-## Use it beside your entities
+## Using it from an entity
 
-Unpack this pack next to your entity directories:
+```sh
+entity module source github:YOU/entity-modules@main
+entity module available
+entity module add shares --as YOUR-ID
+```
 
-    ~/entities/entity-modules/…      ← this pack
-    ~/entities/our-coop/             ← an entity
+`add` pins `main` to the commit it points at now; the proposal records that
+commit, and every copy of the entity fetches exactly that code and checks its
+digest. Publishing new commits here changes nothing in any entity until its
+members upgrade (`entity module upgrade NAME`), which replays the entity's
+whole record with the new code before anything is proposed.
 
-`pack:NAME` sources then find it. `ENTITY_MODULES=/path/to/entity-modules` points
-elsewhere.
+## A module
 
-## Publish it
-
-Publish the pack as one repository, so each module has a stable, pinned source:
-
-    cd entity-modules
-    git init -b main && git add -A && git commit -m "entity modules"
-    # GitHub: create the repository, then
-    git remote add origin git@github.com:YOU/entity-modules.git && git push -u origin main
-    # or Radicle:
-    rad init --name entity-modules --default-branch main --public --no-confirm
-
-Then note the commit (`git rev-parse HEAD`) and point `library.yml` in your
-entities at it:
-
-    modules:
-      offices: github:YOU/entity-modules/offices@COMMIT
-
-Every entity that installs a module records that source and the digest of the
-exact code. A later commit is a different module version, installed by a new
-decision.
+Each folder holds `index.js` (the module), `parameters.yml` (its settings and
+their defaults), `ui.js` (its tab on the page) and `tests.js`. See docs/MODULES.md
+in entity.

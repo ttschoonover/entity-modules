@@ -10,7 +10,21 @@ export default function render(api) {
   const sec = h('section', {}, h('h2', {}, unit[0].toUpperCase() + unit.slice(1)),
     h('p', { class: 'hint' }, `${fmt(l.supply)} exist. New ${unit} are issued only by decision.`));
   if (me) sec.append(h('p', {}, 'You hold ', h('strong', {}, fmt(l.balances[me.id] || 0)), '.'));
-  if (holders.length) sec.append(h('div', { class: 'scroll' }, h('table', {}, h('tbody', {}, holders.map(([id, b]) => h('tr', {}, h('td', {}, id), h('td', {}, fmt(b))))))));
+  // With the finality module: a payment is final once a final checkpoint covers it.
+  if (state.m.finality && params.value('entity.modules').includes('finality')) {
+    const last = state.m.finality.finals.slice(-1)[0];
+    const recent = api.nameOf ? state.head.seq - (last?.count || 0) : 0;
+    sec.append(h('p', { class: 'fine' }, last
+      ? `Payments are final up to record ${last.count} (checkpoint ${last.number}). The ${recent} record(s) since, including any payments in them, are provisional until the next checkpoint.`
+      : 'No checkpoint is final yet, so no payment is final: treat balances as provisional.'));
+  }
+  if (holders.length) sec.append(api.list({
+    key: 'value', items: holders, noun: 'holders', head: ['Holder', 'Balance', 'Share'],
+    row: ([id, b]) => h('tr', {}, h('td', {}, api.who ? api.who(id) : id), h('td', {}, fmt(b)), h('td', {}, `${((b / (l.supply || 1)) * 100).toFixed(1)}%`)),
+    mine: me ? ([id]) => id === me.id : null,
+    text: ([id]) => `${id} ${api.nameOf ? api.nameOf(id) : ''}`,
+    sorts: [['Largest first', (a, b) => b[1] - a[1]], ['Smallest first', (a, b) => a[1] - b[1]], ['Holder, A–Z', api.sorts.byText(([id]) => id)]],
+  }));
   if (!me || me.status !== 'active') return sec;
   if (params.value('value.transferable') && (l.balances[me.id] || 0) > 0) {
     sec.append(h('details', {}, h('summary', {}, `Send ${unit}`), h('div', { class: 'inline-form' },

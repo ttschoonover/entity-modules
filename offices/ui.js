@@ -7,19 +7,23 @@ export default function render(api) {
   const all = Object.values(state.m.offices || {}).filter(o => !o.abolished);
   const active = Object.values(state.participants).filter(p => p.status === 'active').map(p => p.id);
   const sec = h('section', {}, h('h2', {}, 'Offices'));
-  if (!all.length) sec.append(h('p', { class: 'hint' }, 'No offices yet.'));
-  const list = h('ul', { class: 'items' });
-  for (const o of all) {
+  const row = (o) => {
     const now = current(o, at);
-    list.append(h('li', {},
-      h('h3', {}, o.title),
+    return h('li', {},
+      h('h3', {}, api.link ? api.link(`offices/${o.id}`, o.title) : o.title),
       h('p', { class: 'meta' }, `${o.id} · ${now.length} of ${o.seats} seat${o.seats === 1 ? '' : 's'} filled${o.term_days ? ` · ${o.term_days}-day terms` : ''}`),
       now.length ? h('ul', {}, now.map(x => h('li', {}, x.id, x.until ? ` · until ${when(x.until)}` : ''))) : h('p', { class: 'hint' }, 'Vacant.'),
       me && now.some(x => x.id === me.id)
         ? h('div', { class: 'buttons' }, h('button', { class: 'quiet', onclick: () => api.sign('office.resign', { office: o.id }, `Your resignation as ${o.title}`) }, 'Resign'))
-        : null));
-  }
-  sec.append(list);
+        : null);
+  };
+  sec.append(api.list({
+    key: 'offices', items: all, noun: 'offices', empty: 'No offices yet.', render: row,
+    mine: me ? (o) => current(o, at).some(x => x.id === me.id) : null,
+    text: (o) => `${o.id} ${o.title} ${current(o, at).map(x => x.id).join(' ')}`,
+    sorts: [['Title, A–Z', api.sorts.byText((o) => o.title)], ['Vacant first', (a, b) => (current(a, at).length / a.seats) - (current(b, at).length / b.seats)], ['Newest first', api.sorts.newest((o) => o.created)]],
+    filters: [{ label: 'Seats', options: [['Filled or not', () => true], ['With a vacancy', (o) => current(o, at).length < o.seats], ['Full', (o) => current(o, at).length >= o.seats]] }],
+  }));
   if (me?.status !== 'active') return sec;
   sec.append(h('details', {}, h('summary', {}, 'Propose a new office'),
     h('div', { class: 'inline-form' },
@@ -43,3 +47,19 @@ export default function render(api) {
   }
   return sec;
 }
+
+// One office: every holder it has had, and any authority granted to it.
+function one(api, id) {
+  const { h, state, day, link, who } = api;
+  const o = state.m.offices?.[id];
+  if (!o) return h('section', {}, h('h2', {}, 'Not found'), h('p', {}, `There is no office ${id}.`), link('offices', 'Every office'));
+  const at = state.head.at;
+  const grants = Object.values(state.m.authority?.grants || {}).filter(g => g.to.office === id);
+  return h('section', {}, h('h2', {}, o.title),
+    h('p', { class: 'meta' }, `${o.id} · ${o.seats} seat${o.seats === 1 ? '' : 's'}${o.term_days ? ` · ${o.term_days}-day terms` : ''} · created ${day(o.created)}${o.abolished ? ` · abolished ${day(o.abolished)}` : ''}`),
+    h('h3', {}, 'Holders'), o.holders.length ? h('ul', {}, o.holders.map(x => h('li', {}, who(x.id), ` · ${day(x.since)}–${x.until && x.until <= at ? day(x.until) : x.until ? `now (until ${day(x.until)})` : 'now'}`))) : h('p', { class: 'hint' }, 'Nobody has held it.'),
+    grants.length ? [h('h3', {}, 'Authority granted to it'), h('ul', {}, grants.map(g => h('li', {}, link(`authority/${g.id}`, g.id), `: may ${g.may.join(', ')}${g.revoked ? ' (revoked)' : ''}`)))] : null,
+    h('p', {}, link('offices', 'Every office')));
+}
+
+export const tabs = [{ id: 'offices', title: 'Offices', render: (api, path) => (path[0] ? one(api, path[0]) : render(api)) }];

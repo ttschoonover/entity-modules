@@ -4,7 +4,13 @@ parameters:
     type: list
     changed_by: ordinary
     group: Threads
-    describe: The boards posts can go on.
+    describe: The boards set by decision. Members may start more if threads.open_boards is on.
+  threads.open_boards:
+    value: true
+    type: boolean
+    changed_by: ordinary
+    group: Threads
+    describe: Whether any active member may start a new board, as on a forum. Off means boards come only from threads.boards, by decision.
   threads.max_length:
     value: 10000
     type: integer

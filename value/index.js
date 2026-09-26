@@ -46,6 +46,16 @@ function install(r) {
     const l = ledger(state); l.balances[rec.payload.from] -= rec.payload.amount; l.supply -= rec.payload.amount;
   });
 
+  // decision.electorate "value": holders vote with their balance. One unit, one
+  // vote: a shareholder meeting, a token vote. Balances are read when a
+  // proposal is laid, so buying units during a vote changes nothing.
+  r.registerElectorate({
+    name: 'value', module: 'value',
+    describe: () => 'holders of the unit, one vote per smallest unit held',
+    check: (state, arg) => (arg ? '"value" takes no argument' : null),
+    roll: (state) => ({ ...(state.m.value?.balances || {}) }),
+  });
+
   r.registerKind({
     name: 'value.transfer', module: 'value',
     check(state, act, { params }) {
@@ -73,5 +83,5 @@ function install(r) {
 }
 
 export const balance = bal;
-export default { name: 'value', install, show, balance: bal,
+export default { name: 'value', core: '0.4', install, show, balance: bal,
   parameterKeys: ['value.name', 'value.decimals', 'value.transferable', 'value.issue_rule', 'value.max_supply'] };
