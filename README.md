@@ -5,7 +5,7 @@ fetch a module from here only when their members install it by decision.
 
     titles  vocabulary  offices  value  deeds  threads  committees  authority
     polls  badges  elections  lending  wiki  finality  shares  budget
-    meetings  tasks  shares  budget
+    meetings  tasks  passwords  passkeys  shares  budget
 
 ## Using it from an entity
 
