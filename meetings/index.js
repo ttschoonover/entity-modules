@@ -22,6 +22,36 @@ export const checkinWindow = (m, hours) => ({ from: new Date(Date.parse(m.starts
 const iso = (s) => typeof s === 'string' && !Number.isNaN(Date.parse(s)) && /^\d{4}-\d\d-\d\dT/.test(s);
 
 function install(r) {
+  // Amending: everything about it but its id, under the rule that created it.
+  const amend = ({ name, of, key, label, fields, extra, apply }) => {
+    r.registerEffect({
+      name, module: of,
+      rule: (p, e, registry) => registry.effects.get(of === 'authority' ? 'authority.grant' : extra.createKind).rule(p, e, registry),
+      describe: (e) => `Amend ${label} ${e[key]}: ${Object.keys(e).filter(k => fields[k]).map(k => `${k} → ${JSON.stringify(e[k])}`).join(', ')}`,
+      check(state, e, params, at, ctx = {}) {
+        const it = extra.get(state, e[key]);
+        if (!it) return `there is no ${label} ${e[key]}`;
+        const changes = Object.keys(e).filter(k => fields[k]);
+        if (!changes.length) return `say what to change: ${Object.keys(fields).join(', ')}`;
+        for (const k of changes) { const why = fields[k](e[k], it, state, e); if (why) return why; }
+        return extra.also ? extra.also(state, e, it, params, at, ctx) : null;
+      },
+    });
+    r.registerRecord(name, (state, rec) => {
+      const e = rec.payload, it = extra.get(state, e[key]);
+      for (const k of Object.keys(e)) if (fields[k]) apply ? apply(it, k, e[k], rec) : (it[k] = e[k]);
+      (it.amended ||= []).push({ at: rec.at, by: originOf(e), fields: Object.keys(e).filter(k => fields[k]) });
+    });
+  };
+  amend({ name: 'meeting.amend', of: 'meetings', key: 'meeting', label: 'the meeting',
+    extra: { createKind: 'meeting.call', get: (s, id) => (s.m.meetings?.[id]?.cancelled ? null : s.m.meetings?.[id] || null) },
+    fields: {
+      title: (v) => (typeof v === 'string' && v.trim() && v.length <= 100 ? null : 'a title is 1–100 characters'),
+      starts: (v, m, s) => (typeof v !== 'string' || Number.isNaN(Date.parse(v)) ? 'starts is a date and time' : (s.head.at || '') >= m.starts ? 'it has already started: its time can no longer change' : null),
+      place: (v) => (typeof v === 'string' && v.length <= 200 ? null : 'a place is at most 200 characters'),
+      agenda: (v) => (Array.isArray(v) && v.length <= 40 && v.every(x => typeof x === 'string' && x.trim() && x.length <= 200) ? null : 'an agenda is a list of up to 40 items'),
+    } });
+
   r.registerEffect({
     name: 'meeting.call', module: 'meetings',
     rule: (p) => p.value('meetings.call_rule'),
@@ -95,4 +125,4 @@ function install(r) {
   });
 }
 
-export default { name: 'meetings', core: '0.4', install, checkinWindow, parameterKeys: ['meetings.call_rule', 'meetings.minutes_rule', 'meetings.checkin_hours', 'meetings.max_length'] };
+export default { name: 'meetings', core: '0.7.7', install, checkinWindow, parameterKeys: ['meetings.call_rule', 'meetings.minutes_rule', 'meetings.checkin_hours', 'meetings.max_length'] };

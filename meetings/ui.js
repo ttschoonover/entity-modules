@@ -8,7 +8,8 @@ export default function render(api) {
   const hours = params.value('meetings.checkin_hours');
   const sec = h('section', {}, h('h2', {}, 'Meetings'), h('p', { class: 'hint' }, 'Meetings, their agendas, who came (each member checks in themselves), and minutes.'));
   sec.append(api.list({
-    key: 'meetings', items: all, noun: 'meetings', empty: 'No meetings yet.',
+    key: 'meetings',
+    edit: (m) => (api.me?.status === 'active' && !m.cancelled ? api.editForm('Edit this meeting', [['title', 'Title', m.title], ['starts', 'When (only before it starts)', m.starts, 'datetime'], ['place', 'Where', m.place], ['agenda', 'Agenda (one item per line)', m.agenda, 'lines']], (ch) => api.propose(`Amend the meeting ${m.title}`, [{ kind: 'meeting.amend', meeting: m.id, ...ch }])) : null), items: all, noun: 'meetings', empty: 'No meetings yet.',
     mine: me ? (m) => !!m.attendance[me.id] : null,
     text: (m) => `${m.id} ${m.title} ${m.place} ${m.agenda.join(' ')}`,
     sorts: [['Soonest first', (a, b) => (a.starts < now) - (b.starts < now) || (a.starts < now ? (a.starts < b.starts ? 1 : -1) : (a.starts < b.starts ? -1 : 1))], ['Newest first', api.sorts.newest((m) => m.starts)], ['Oldest first', api.sorts.oldest((m) => m.starts)]],

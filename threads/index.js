@@ -37,6 +37,25 @@ export function boardsOf(state, params) {
 const activeOnly = (state, act) => state.participants[act.by].status === 'active' ? null : 'only active participants may post';
 
 function install(r) {
+  // Amending a board: its title and description, by decision (or a grant).
+  r.registerEffect({
+    name: 'board.amend', module: 'threads',
+    rule: () => 'ordinary',
+    describe: (e) => `Amend the board ${e.board}${e.title ? `: now "${e.title}"` : ''}`,
+    check(state, e) {
+      const b = state.m.threads?.boards?.[e.board];
+      if (!b) return `there is no board ${e.board} made by members (boards set by decision are named in threads.boards)`;
+      if (e.title === undefined && e.description === undefined) return 'say what to change: title or description';
+      if (e.title !== undefined && (typeof e.title !== 'string' || !e.title.trim() || e.title.length > 60)) return 'a title is 1–60 characters';
+      return e.description !== undefined && (typeof e.description !== 'string' || e.description.length > 300) ? 'a description is at most 300 characters' : null;
+    },
+  });
+  r.registerRecord('board.amend', (state, rec) => {
+    const e = rec.payload, b = state.m.threads.boards[e.board];
+    if (e.title !== undefined) b.title = e.title;
+    if (e.description !== undefined) b.description = e.description;
+  });
+
   r.registerKind({
     name: 'post.create', module: 'threads',
     check(state, act, { params }) {
@@ -146,4 +165,4 @@ function install(r) {
   r.registerRecord('thread.hide', (state, rec) => { item(state, rec.payload.target).hidden = { by: rec.payload.proposal || `grant ${rec.payload.via}`, at: rec.at, reason: rec.payload.reason || '' }; });
 }
 
-export default { name: 'threads', core: '0.4', install, postId, score, boardsOf, parameterKeys: ['threads.boards', 'threads.open_boards', 'threads.max_length', 'threads.moderator_office'] };
+export default { name: 'threads', core: '0.7.7', install, postId, score, boardsOf, parameterKeys: ['threads.boards', 'threads.open_boards', 'threads.max_length', 'threads.moderator_office'] };

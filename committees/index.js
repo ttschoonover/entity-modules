@@ -13,6 +13,7 @@
 // Created, filled, emptied and dissolved only by decision (or by a grant that
 // allows it); a member may always leave a committee.
 
+import { originOf } from '../../kernel/effects.js';
 const ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
 const committee = (state, id) => state.m.committees?.[id];
 
@@ -29,6 +30,36 @@ export const ruleWhy = (rule) => (rule === undefined || rule === 'majority' || r
   ? null : 'a committee rule is "majority", "all" or a whole number from 1 to 50';
 
 function install(r) {
+  // Amending: everything about it but its id, under the rule that created it.
+  const amend = ({ name, of, key, label, fields, extra, apply }) => {
+    r.registerEffect({
+      name, module: of,
+      rule: (p, e, registry) => registry.effects.get(of === 'authority' ? 'authority.grant' : extra.createKind).rule(p, e, registry),
+      describe: (e) => `Amend ${label} ${e[key]}: ${Object.keys(e).filter(k => fields[k]).map(k => `${k} → ${JSON.stringify(e[k])}`).join(', ')}`,
+      check(state, e, params, at, ctx = {}) {
+        const it = extra.get(state, e[key]);
+        if (!it) return `there is no ${label} ${e[key]}`;
+        const changes = Object.keys(e).filter(k => fields[k]);
+        if (!changes.length) return `say what to change: ${Object.keys(fields).join(', ')}`;
+        for (const k of changes) { const why = fields[k](e[k], it, state, e); if (why) return why; }
+        return extra.also ? extra.also(state, e, it, params, at, ctx) : null;
+      },
+    });
+    r.registerRecord(name, (state, rec) => {
+      const e = rec.payload, it = extra.get(state, e[key]);
+      for (const k of Object.keys(e)) if (fields[k]) apply ? apply(it, k, e[k], rec) : (it[k] = e[k]);
+      (it.amended ||= []).push({ at: rec.at, by: originOf(e), fields: Object.keys(e).filter(k => fields[k]) });
+    });
+  };
+  amend({ name: 'committee.amend', of: 'committees', key: 'committee', label: 'the committee',
+    extra: { createKind: 'committee.create', get: (s, id) => (s.m.committees?.[id]?.dissolved ? null : s.m.committees?.[id]) },
+    fields: {
+      title: (v) => (typeof v === 'string' && v.trim() && v.length <= 80 ? null : 'a title is 1–80 characters'),
+      remit: (v) => (typeof v === 'string' && v.length <= 1000 ? null : 'a remit is at most 1000 characters'),
+      needs: (v) => ruleWhy(v),
+      seats: (v) => (v === null || (Number.isInteger(v) && v >= 1 && v <= 100) ? null : 'seats is a whole number, or null for no limit'),
+    } });
+
   r.registerEffect({
     name: 'committee.create', module: 'committees',
     rule: (p) => p.value('committees.create_rule'),
@@ -99,5 +130,5 @@ function install(r) {
   });
 }
 
-export default { name: 'committees', core: '0.4', install, members, isMember, needed,
+export default { name: 'committees', core: '0.7.7', install, members, isMember, needed,
   parameterKeys: ['committees.create_rule', 'committees.appoint_rule'] };

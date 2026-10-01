@@ -52,6 +52,7 @@ function list(api, board) {
   const posts = c.t.order.map(id => c.t.items[id]).filter(p => visible(p) && (!board || p.board === board));
   const sec = h('section', {}, h('h2', {}, b ? b.title : 'Threads'),
     b?.description ? h('p', {}, b.description) : null,
+    b && b.by && api.me?.status === 'active' ? api.editForm('Edit this board', [['title', 'Name', b.title], ['description', 'What it is for', b.description]], (ch) => api.propose(`Amend the board ${b.title}`, [{ kind: 'board.amend', board: b.id, ...ch }])) : null,
     boardBar(api, c, board),
     h('p', { class: 'fine' }, 'Everything posted stays in the record for good. Deleting or hiding a post removes it from view, not from the record.'));
   sec.append(api.list({

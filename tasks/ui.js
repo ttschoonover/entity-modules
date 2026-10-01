@@ -10,7 +10,8 @@ export default function render(api) {
     h('p', { class: 'hint' }, `Chores, shifts and jobs. Claim one, do it, say it is done${verify ? ', and someone else verifies it' : ''}; the hours count${pay ? `, and each hour pays ${pay}` : ''}.`),
     me ? h('p', {}, 'Your verified hours: ', h('strong', {}, String(hoursOf(state, me.id)))) : null);
   sec.append(api.list({
-    key: 'tasks', items: all, noun: 'tasks', empty: 'No tasks yet.',
+    key: 'tasks',
+    edit: (t) => (api.me && t.by === api.me.id && !t.claimer && !t.cancelled && !t.verified ? api.editForm('Edit your task', [['title', 'What', t.title], ['hours', 'Hours', t.hours, 'number'], ['note', 'Note', t.note, 'textarea']], (ch) => api.sign('task.edit', { task: t.id, ...ch }, `Editing your task ${t.title}`)) : null), items: all, noun: 'tasks', empty: 'No tasks yet.',
     mine: me ? (t) => t.claimer === me.id || t.by === me.id : null,
     text: (t) => `${t.id} ${t.title} ${t.note} ${t.claimer || ''} ${t.by}`,
     sorts: [['Due soonest', (a, b) => (a.due || '9') < (b.due || '9') ? -1 : 1], ['Newest first', api.sorts.newest((t) => t.posted)], ['Most hours', (a, b) => b.hours - a.hours]],

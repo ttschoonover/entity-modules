@@ -44,6 +44,34 @@ function transferableWhy(e, params) {
 }
 
 function install(r) {
+  // Amending: everything about it but its id, under the rule that created it.
+  const amend = ({ name, of, key, label, fields, extra, apply }) => {
+    r.registerEffect({
+      name, module: of,
+      rule: (p, e, registry) => registry.effects.get(of === 'authority' ? 'authority.grant' : extra.createKind).rule(p, e, registry),
+      describe: (e) => `Amend ${label} ${e[key]}: ${Object.keys(e).filter(k => fields[k]).map(k => `${k} → ${JSON.stringify(e[k])}`).join(', ')}`,
+      check(state, e, params, at, ctx = {}) {
+        const it = extra.get(state, e[key]);
+        if (!it) return `there is no ${label} ${e[key]}`;
+        const changes = Object.keys(e).filter(k => fields[k]);
+        if (!changes.length) return `say what to change: ${Object.keys(fields).join(', ')}`;
+        for (const k of changes) { const why = fields[k](e[k], it, state, e); if (why) return why; }
+        return extra.also ? extra.also(state, e, it, params, at, ctx) : null;
+      },
+    });
+    r.registerRecord(name, (state, rec) => {
+      const e = rec.payload, it = extra.get(state, e[key]);
+      for (const k of Object.keys(e)) if (fields[k]) apply ? apply(it, k, e[k], rec) : (it[k] = e[k]);
+      (it.amended ||= []).push({ at: rec.at, by: originOf(e), fields: Object.keys(e).filter(k => fields[k]) });
+    });
+  };
+  amend({ name: 'deed.amend', of: 'deeds', key: 'deed', label: 'the deed',
+    extra: { createKind: 'deed.grant', get: (s, id) => { const d = s.m.deeds?.[id]; return d && !d.retired ? d : null; } },
+    fields: {
+      title: (v) => (typeof v === 'string' && v.trim() && v.length <= 120 ? null : 'a title is 1–120 characters'),
+      description: (v) => (typeof v === 'string' && v.length <= 2000 ? null : 'a description is at most 2000 characters'),
+    } });
+
   r.registerEffect({
     name: 'deed.grant', module: 'deeds',
     rule: (p) => p.value('deeds.grant_rule'),
@@ -113,4 +141,4 @@ function install(r) {
   });
 }
 
-export default { name: 'deeds', core: '0.4', install, mode, passable, parameterKeys: ['deeds.grant_rule', 'deeds.transferability', 'deeds.default_transferable'] };
+export default { name: 'deeds', core: '0.7.7', install, mode, passable, parameterKeys: ['deeds.grant_rule', 'deeds.transferability', 'deeds.default_transferable'] };

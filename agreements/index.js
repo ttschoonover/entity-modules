@@ -7,7 +7,11 @@
 // when. The version to sign is the one enacted as law, or, for a page not
 // enacted, its latest version.
 //
-//   agreement.sign { page, version, text }   text: the fingerprint of that version
+//   agreement.sign { page, version, text, drawing? }
+//                  text: the fingerprint of that version; drawing: an image of the
+//                  member's handwritten signature (a PNG data URL), sealed inside
+//                  the signed act so it cannot be moved to another document.
+//                  agreements.drawn_signature says whether it is required.
 //
 // agreements.required lists pages an applicant must have signed before they can
 // be admitted (checked however they are admitted: by decision or by a grant).
@@ -58,12 +62,18 @@ function install(r) {
       if (!v) return page(state, act.page) ? `"${act.page}" has not been enacted yet: it can be signed once the members enact it` : `there is no document "${act.page}"`;
       if (act.version !== v.n) return `the version to sign is ${v.n} (${page(state, act.page).statute ? 'the one enacted' : 'the latest'})`;
       if (act.text !== fingerprint(act.page, v)) return 'that is not the text of this version: reload the page and read it again';
+      const drawn = params.value('agreements.drawn_signature');
+      if (act.drawing !== undefined) {
+        if (drawn === 'off') return 'drawn signatures are not used here';
+        if (typeof act.drawing !== 'string' || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(act.drawing)) return 'the drawn signature must be a PNG image';
+        if (act.drawing.length > 80000) return 'the drawn signature image is too large (at most about 60 KB)';
+      } else if (drawn === 'required') return 'draw your signature before signing';
       return signaturesOf(state, act.by, act.page).some(s => s.version === v.n) ? 'you have already signed this version' : null;
     },
     reduce(state, rec) {
       const a = rec.payload.act;
       ((state.m.agreements ||= {})[a.by] ||= {})[a.page] ||= [];
-      state.m.agreements[a.by][a.page].push({ version: a.version, text: a.text, at: rec.at });
+      state.m.agreements[a.by][a.page].push({ version: a.version, text: a.text, at: rec.at, ...(a.drawing ? { drawing: a.drawing } : {}) });
     },
   });
 
@@ -75,4 +85,4 @@ function install(r) {
 }
 
 export default { name: 'agreements', core: '0.7.3', install, current, fingerprint, signaturesOf, unsigned, outstanding,
-  parameterKeys: ['agreements.required', 'agreements.amendments', 'agreements.enacted_only'] };
+  parameterKeys: ['agreements.required', 'agreements.amendments', 'agreements.enacted_only', 'agreements.drawn_signature'] };

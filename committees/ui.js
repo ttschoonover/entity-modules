@@ -10,7 +10,8 @@ function list(api) {
     h('p', { class: 'hint' }, 'Bodies inside the entity. A committee acts only through the authority granted to it, and decides among itself by co-signature.'));
   if (!all.length) sec.append(h('p', { class: 'hint' }, 'No committees yet.'));
   sec.append(api.list({
-    key: 'committees', items: all, noun: 'committees', mine: me ? (c) => members(c, at).includes(me.id) : null,
+    key: 'committees',
+    edit: (c) => (api.me?.status === 'active' ? api.editForm('Edit this committee', [['title', 'Title', c.title], ['remit', 'Remit', c.remit, 'textarea'], ['needs', 'Decides by', String(c.needs), 'select', ['majority', 'all', '1', '2', '3', '4', '5']]], (ch) => api.propose(`Amend the committee ${c.title}`, [{ kind: 'committee.amend', committee: c.id, ...ch }])) : null), items: all, noun: 'committees', mine: me ? (c) => members(c, at).includes(me.id) : null,
     text: (c) => `${c.id} ${c.title} ${c.remit}`,
     sorts: [['Name, A–Z', api.sorts.byText((c) => c.title)], ['Newest first', api.sorts.newest((c) => c.created)], ['Most members', (a, b) => members(b, at).length - members(a, at).length]],
     render: (c => {

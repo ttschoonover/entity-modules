@@ -153,6 +153,41 @@ function enact(x, g) {
 }
 
 function install(r) {
+  // Amending a grant: its title, note, holder, powers, limits or signatures.
+  // A change to what it may do is checked exactly as a new grant would be,
+  // under the strictest rule among its powers. Never done under a grant.
+  const POWERS = ['to', 'may', 'where', 'limit', 'needs', 'delegable'];
+  r.registerEffect({
+    name: 'authority.amend', module: 'authority',
+    rule: (p, e, registry) => registry.effects.get('authority.grant').rule(p, e, registry),
+    describe: (e) => `Amend the grant ${e.grant}: ${Object.keys(e).filter(k => ['title', 'note', ...POWERS].includes(k)).join(', ')}`,
+    check(state, e, params, at, ctx = {}) {
+      if (ctx.via) return 'grants are amended by the members, never under a grant';
+      const g = grantOf(state, e.grant);
+      if (!g || g.revoked) return `there is no grant ${e.grant} in force`;
+      const keys = Object.keys(e).filter(k => ['title', 'note', ...POWERS].includes(k));
+      if (!keys.length) return 'say what to change: title, note, to, may, where, limit, needs or delegable';
+      if (e.title !== undefined && (typeof e.title !== 'string' || e.title.length > 80)) return 'a title is at most 80 characters';
+      if (e.note !== undefined && (typeof e.note !== 'string' || e.note.length > 1000)) return 'a note is at most 1000 characters';
+      if (keys.some(k => POWERS.includes(k))) {
+        if (!e.may) return 'changing what a grant may do, or whom it is for, restates its powers: include may (the full list)';
+        const merged = { grant: g.id, to: e.to ?? g.to, may: e.may, delegable: e.delegable ?? g.delegable, needs: e.needs ?? g.needs, note: e.note ?? g.note };
+        const where = e.where === undefined ? g.where : e.where; if (where) merged.where = where;
+        const limit = e.limit === undefined ? g.limit : e.limit; if (limit) merged.limit = limit;
+        const others = { ...state.m.authority.grants }; delete others[g.id];
+        const bad = grantShape({ ...state, m: { ...state.m, authority: { ...state.m.authority, grants: others } } }, merged, ctx.registry);
+        if (bad) return bad;
+        if (!body(state, merged.to, at)) return `there is no ${bodyName(merged.to).replace('the ', '')}`;
+      }
+      return null;
+    },
+  });
+  r.registerRecord('authority.amend', (state, rec) => {
+    const e = rec.payload, g = book(state).grants[e.grant];
+    for (const k of ['title', 'note', ...POWERS]) if (e[k] !== undefined) g[k] = e[k];
+    (g.amended ||= []).push({ at: rec.at, by: originOf(e), fields: Object.keys(e).filter(k => ['title', 'note', ...POWERS].includes(k)) });
+  });
+
   r.registerEffect({
     name: 'authority.grant', module: 'authority',
     rule(p, e, registry) {
@@ -255,5 +290,5 @@ function install(r) {
   });
 }
 
-export default { name: 'authority', core: '0.4', install, inForce, body, needed, outside, exerciseId, PROTECTED,
+export default { name: 'authority', core: '0.7.7', install, inForce, body, needed, outside, exerciseId, PROTECTED,
   parameterKeys: ['authority.grant_rule', 'authority.cosign_days'] };

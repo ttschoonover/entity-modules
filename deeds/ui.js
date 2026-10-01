@@ -21,7 +21,8 @@ export default function render(api) {
         h('button', { class: 'quiet', onclick: () => api.sign('deed.release', { deed: d.id }, `Giving ${d.title} back to the entity`) }, 'Give back')) : null);
   };
   sec.append(api.list({
-    key: 'deeds', items: deeds, noun: 'deeds', empty: 'Nothing registered yet.', render: row,
+    key: 'deeds',
+    edit: (d) => (api.me?.status === 'active' && !d.retired ? api.editForm('Edit this deed', [['title', 'Title', d.title], ['description', 'Description', d.description, 'textarea']], (ch) => api.propose(`Amend the deed ${d.title}`, [{ kind: 'deed.amend', deed: d.id, ...ch }])) : null), items: deeds, noun: 'deeds', empty: 'Nothing registered yet.', render: row,
     mine: me ? (d) => d.holder === me.id : null,
     text: (d) => `${d.id} ${d.title} ${d.description} ${d.holder || 'entity'}`,
     sorts: [['Title, A–Z', api.sorts.byText((d) => d.title)], ['Newest first', api.sorts.newest((d) => d.granted)], ['Oldest first', api.sorts.oldest((d) => d.granted)]],

@@ -18,7 +18,8 @@ export default function render(api) {
         : null);
   };
   sec.append(api.list({
-    key: 'offices', items: all, noun: 'offices', empty: 'No offices yet.', render: row,
+    key: 'offices',
+    edit: (o) => (api.me?.status === 'active' ? api.editForm('Edit this office', [['title', 'Title', o.title], ['seats', 'Seats', o.seats, 'number'], ['term_days', 'Term in days (empty for none)', o.term_days, 'number']], (ch) => api.propose(`Amend the office ${o.title}`, [{ kind: 'office.amend', office: o.id, ...ch }])) : null), items: all, noun: 'offices', empty: 'No offices yet.', render: row,
     mine: me ? (o) => current(o, at).some(x => x.id === me.id) : null,
     text: (o) => `${o.id} ${o.title} ${current(o, at).map(x => x.id).join(' ')}`,
     sorts: [['Title, A–Z', api.sorts.byText((o) => o.title)], ['Vacant first', (a, b) => (current(a, at).length / a.seats) - (current(b, at).length / b.seats)], ['Newest first', api.sorts.newest((o) => o.created)]],

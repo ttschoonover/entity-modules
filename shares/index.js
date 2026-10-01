@@ -27,6 +27,36 @@ export const outstanding = (c) => Object.values(c.holders).reduce((a, b) => a + 
 const member = (state, id) => ['active', 'applicant'].includes(state.participants[id]?.status);
 
 function install(r) {
+  // Amending: everything about it but its id, under the rule that created it.
+  const amend = ({ name, of, key, label, fields, extra, apply }) => {
+    r.registerEffect({
+      name, module: of,
+      rule: (p, e, registry) => registry.effects.get(of === 'authority' ? 'authority.grant' : extra.createKind).rule(p, e, registry),
+      describe: (e) => `Amend ${label} ${e[key]}: ${Object.keys(e).filter(k => fields[k]).map(k => `${k} → ${JSON.stringify(e[k])}`).join(', ')}`,
+      check(state, e, params, at, ctx = {}) {
+        const it = extra.get(state, e[key]);
+        if (!it) return `there is no ${label} ${e[key]}`;
+        const changes = Object.keys(e).filter(k => fields[k]);
+        if (!changes.length) return `say what to change: ${Object.keys(fields).join(', ')}`;
+        for (const k of changes) { const why = fields[k](e[k], it, state, e); if (why) return why; }
+        return extra.also ? extra.also(state, e, it, params, at, ctx) : null;
+      },
+    });
+    r.registerRecord(name, (state, rec) => {
+      const e = rec.payload, it = extra.get(state, e[key]);
+      for (const k of Object.keys(e)) if (fields[k]) apply ? apply(it, k, e[k], rec) : (it[k] = e[k]);
+      (it.amended ||= []).push({ at: rec.at, by: originOf(e), fields: Object.keys(e).filter(k => fields[k]) });
+    });
+  };
+  amend({ name: 'share.amend', of: 'shares', key: 'class', label: 'the share class',
+    extra: { createKind: 'share.class', get: (s, id) => s.m.shares?.classes?.[id] || null },
+    fields: {
+      title: (v) => (typeof v === 'string' && v.trim() && v.length <= 60 ? null : 'a title is 1–60 characters'),
+      voting: (v) => (typeof v === 'boolean' ? null : 'voting is true or false'),
+      transferable: (v) => (typeof v === 'boolean' ? null : 'transferable is true or false'),
+      note: (v) => (typeof v === 'string' && v.length <= 500 ? null : 'a note is at most 500 characters'),
+    } });
+
   r.registerEffect({
     name: 'share.class', module: 'shares',
     rule: (p) => p.value('shares.class_rule'),
@@ -140,4 +170,4 @@ function install(r) {
   });
 }
 
-export default { name: 'shares', core: '0.4', install, held, outstanding, parameterKeys: ['shares.class_rule', 'shares.issue_rule', 'shares.dividend_rule'] };
+export default { name: 'shares', core: '0.7.7', install, held, outstanding, parameterKeys: ['shares.class_rule', 'shares.issue_rule', 'shares.dividend_rule'] };

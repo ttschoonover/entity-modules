@@ -11,6 +11,34 @@ export const holds = (state, id, who) => !!badge(state, id)?.holders[who];
 export const badgesOf = (state, who) => Object.values(state.m.badges || {}).filter(b => !b.retired && b.holders[who]);
 
 function install(r) {
+  // Amending: everything about it but its id, under the rule that created it.
+  const amend = ({ name, of, key, label, fields, extra, apply }) => {
+    r.registerEffect({
+      name, module: of,
+      rule: (p, e, registry) => registry.effects.get(of === 'authority' ? 'authority.grant' : extra.createKind).rule(p, e, registry),
+      describe: (e) => `Amend ${label} ${e[key]}: ${Object.keys(e).filter(k => fields[k]).map(k => `${k} → ${JSON.stringify(e[k])}`).join(', ')}`,
+      check(state, e, params, at, ctx = {}) {
+        const it = extra.get(state, e[key]);
+        if (!it) return `there is no ${label} ${e[key]}`;
+        const changes = Object.keys(e).filter(k => fields[k]);
+        if (!changes.length) return `say what to change: ${Object.keys(fields).join(', ')}`;
+        for (const k of changes) { const why = fields[k](e[k], it, state, e); if (why) return why; }
+        return extra.also ? extra.also(state, e, it, params, at, ctx) : null;
+      },
+    });
+    r.registerRecord(name, (state, rec) => {
+      const e = rec.payload, it = extra.get(state, e[key]);
+      for (const k of Object.keys(e)) if (fields[k]) apply ? apply(it, k, e[k], rec) : (it[k] = e[k]);
+      (it.amended ||= []).push({ at: rec.at, by: originOf(e), fields: Object.keys(e).filter(k => fields[k]) });
+    });
+  };
+  amend({ name: 'badge.amend', of: 'badges', key: 'badge', label: 'the badge',
+    extra: { createKind: 'badge.create', get: (s, id) => s.m.badges?.[id] || null },
+    fields: {
+      title: (v) => (typeof v === 'string' && v.trim() && v.length <= 60 ? null : 'a title is 1–60 characters'),
+      description: (v) => (typeof v === 'string' && v.length <= 300 ? null : 'a description is at most 300 characters'),
+    } });
+
   r.registerEffect({
     name: 'badge.create', module: 'badges',
     rule: (p) => p.value('badges.rule'),
@@ -75,4 +103,4 @@ function install(r) {
   });
 }
 
-export default { name: 'badges', core: '0.4', install, holds, badgesOf, parameterKeys: ['badges.rule'] };
+export default { name: 'badges', core: '0.7.7', install, holds, badgesOf, parameterKeys: ['badges.rule'] };

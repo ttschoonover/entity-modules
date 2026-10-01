@@ -12,6 +12,7 @@ export default function render(api) {
     const rows = Object.entries(c.holders);
     const mine = me ? c.holders[me.id] || 0 : 0;
     sec.append(h('h3', {}, c.title),
+      me?.status === 'active' ? api.editForm('Edit this class', [['title', 'Title', c.title], ['voting', 'Voting', c.voting, 'bool'], ['transferable', 'Transferable', c.transferable, 'bool']], (ch) => api.propose(`Amend the share class ${c.title}`, [{ kind: 'share.amend', class: c.id, ...ch }])) : null,
       h('p', { class: 'meta' }, `${c.id} · ${total} outstanding · ${c.voting ? 'voting' : 'non-voting'} · ${c.transferable ? 'transferable' : 'not transferable'}${mine ? ` · you hold ${mine} (${((mine / total) * 100).toFixed(1)}%)` : ''}`),
       rows.length ? api.list({
         key: `shares:${c.id}`, items: rows, noun: 'holders', head: ['Holder', 'Shares', 'Of the class'],

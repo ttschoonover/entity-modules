@@ -6,7 +6,8 @@ export default function render(api) {
   const sec = h('section', {}, h('h2', {}, 'Badges'), h('p', { class: 'hint' }, 'Marks of recognition, given by the members. Anyone may give back a badge of their own.'));
   if (!all.length) sec.append(h('p', { class: 'hint' }, 'No badges yet.'));
   sec.append(api.list({
-    key: 'badges', items: all, noun: 'badges', mine: me ? (b) => !!b.holders[me.id] : null,
+    key: 'badges',
+    edit: (b) => (api.me?.status === 'active' ? api.editForm('Edit this badge', [['title', 'Title', b.title], ['description', 'Description', b.description, 'textarea']], (ch) => api.propose(`Amend the badge ${b.title}`, [{ kind: 'badge.amend', badge: b.id, ...ch }])) : null), items: all, noun: 'badges', mine: me ? (b) => !!b.holders[me.id] : null,
     text: (b) => `${b.id} ${b.title} ${b.description} ${Object.keys(b.holders).join(' ')}`,
     sorts: [['Title, A–Z', api.sorts.byText((b) => b.title)], ['Most held', (x, y) => Object.keys(y.holders).length - Object.keys(x.holders).length], ['Newest first', api.sorts.newest((b) => b.created)]],
     render: (b => {

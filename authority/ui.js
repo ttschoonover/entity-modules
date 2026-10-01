@@ -12,7 +12,7 @@ function grantBlock(api, g, full) {
   const uses = g.exercises.map(x => state.m.authority.exercises[x]).reverse();
   const shown = full ? uses : uses.slice(0, 3);
   return h('div', { class: 'grant' },
-    h('h3', {}, link(`authority/${g.id}`, g.id), live ? '' : h('span', { class: 'flag' }, g.revoked ? ` · revoked ${day(g.revoked.at)}${g.revoked.reason ? `: ${g.revoked.reason}` : ''}` : ' · fell with the grant it was made under')),
+    h('h3', {}, link(`authority/${g.id}`, g.title || g.id), g.title ? h('span', { class: 'category' }, g.id) : null, live ? '' : h('span', { class: 'flag' }, g.revoked ? ` · revoked ${day(g.revoked.at)}${g.revoked.reason ? `: ${g.revoked.reason}` : ''}` : ' · fell with the grant it was made under')),
     h('p', { class: 'meta' }, `To ${bodyName(g.to)} · made by ${g.origin} on ${day(g.created)}${g.parent ? `, under ${g.parent}` : ''}`),
     h('p', {}, `May: ${g.may.join(', ')}`,
       g.where ? `; only where ${Object.entries(g.where).map(([k, v]) => `${k} is ${[].concat(v).join(' or ')}`).join(', ')}` : '',
@@ -81,7 +81,11 @@ function list(api) {
   if (!grants.length) sec.append(h('p', { class: 'hint' }, 'Nothing has been granted.'));
   const at = state.head.at;
   sec.append(api.list({
-    key: 'authority', items: grants, noun: 'grants', render: (g) => h('li', {}, grantBlock(api, g, false)),
+    key: 'authority',
+    edit: (g) => (api.me?.status === 'active' && !g.revoked ? api.editForm('Edit this grant', [['title', 'Title', g.title || ''], ['note', 'Note', g.note, 'textarea'], ['may', 'What it may do (one per line)', g.may, 'lines'], ['needs', 'Signatures needed', g.needs ?? 1, 'number']], (ch) => {
+      if (('needs' in ch) && !('may' in ch)) ch.may = g.may;
+      api.propose(`Amend the grant ${g.title || g.id}`, [{ kind: 'authority.amend', grant: g.id, ...ch }]);
+    }) : null), items: grants, noun: 'grants', render: (g) => h('li', {}, grantBlock(api, g, false)),
     mine: me ? (g) => (body(state, g.to, at) || []).includes(me.id) : null,
     text: (g) => `${g.id} ${g.may.join(' ')} ${g.to.office || g.to.committee} ${g.note}`,
     sorts: [['Newest first', api.sorts.newest((g) => g.created)], ['Name, A–Z', api.sorts.byText((g) => g.id)], ['Most used', (a, b) => b.exercises.length - a.exercises.length]],

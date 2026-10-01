@@ -28,6 +28,26 @@ function credit(state, t, at) {
 }
 
 function install(r) {
+  // Editing a task: whoever posted it, until someone claims it.
+  r.registerKind({
+    name: 'task.edit', module: 'tasks',
+    check(state, act) {
+      const t = state.m.tasks?.items?.[act.task];
+      if (!t || t.cancelled || t.verified) return `there is no open task ${act.task}`;
+      if (t.by !== act.by) return 'only the member who posted a task may edit it';
+      if (t.claimer) return `${t.claimer} has claimed it: it can no longer change`;
+      if (act.title !== undefined && (typeof act.title !== 'string' || !act.title.trim() || act.title.length > 120)) return 'a title is 1–120 characters';
+      if (act.hours !== undefined && !(typeof act.hours === 'number' && act.hours > 0 && act.hours <= 100 && Number.isInteger(act.hours * 4))) return 'hours is a number from 0.25 to 100, in quarter hours';
+      if (act.due !== undefined && act.due !== null && (typeof act.due !== 'string' || Number.isNaN(Date.parse(act.due)))) return 'due is a date';
+      return act.note !== undefined && (typeof act.note !== 'string' || act.note.length > 1000) ? 'a note is at most 1000 characters' : null;
+    },
+    reduce(state, rec) {
+      const a = rec.payload.act, t = state.m.tasks.items[a.task];
+      for (const k of ['title', 'hours', 'due', 'note']) if (a[k] !== undefined) t[k] = a[k];
+      t.history.push({ at: rec.at, what: `edited by ${a.by}` });
+    },
+  });
+
   r.registerKind({
     name: 'task.post', module: 'tasks',
     check(state, act) {
@@ -105,4 +125,4 @@ function pay(state, t, params) {
   return [{ kind: 'value.issue', payload: { to: t.claimer, amount, memo: `for the task ${t.id}` } }];
 }
 
-export default { name: 'tasks', core: '0.4', install, hoursOf, parameterKeys: ['tasks.verify', 'tasks.pay_per_hour'] };
+export default { name: 'tasks', core: '0.7.7', install, hoursOf, parameterKeys: ['tasks.verify', 'tasks.pay_per_hour'] };

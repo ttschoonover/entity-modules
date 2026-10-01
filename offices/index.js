@@ -4,6 +4,7 @@
 // Terms end by date. "Now" is the time of whatever act is being checked, never
 // a clock, so every copy reaches the same answer.
 
+import { originOf } from '../../kernel/effects.js';
 const ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
 const DAY = 86400000;
 const addDays = (at, d) => new Date(Date.parse(at) + d * DAY).toISOString();
@@ -15,6 +16,35 @@ export function holds(state, officeId, who, at) {
 }
 
 function install(r) {
+  // Amending: everything about it but its id, under the rule that created it.
+  const amend = ({ name, of, key, label, fields, extra, apply }) => {
+    r.registerEffect({
+      name, module: of,
+      rule: (p, e, registry) => registry.effects.get(of === 'authority' ? 'authority.grant' : extra.createKind).rule(p, e, registry),
+      describe: (e) => `Amend ${label} ${e[key]}: ${Object.keys(e).filter(k => fields[k]).map(k => `${k} → ${JSON.stringify(e[k])}`).join(', ')}`,
+      check(state, e, params, at, ctx = {}) {
+        const it = extra.get(state, e[key]);
+        if (!it) return `there is no ${label} ${e[key]}`;
+        const changes = Object.keys(e).filter(k => fields[k]);
+        if (!changes.length) return `say what to change: ${Object.keys(fields).join(', ')}`;
+        for (const k of changes) { const why = fields[k](e[k], it, state, e); if (why) return why; }
+        return extra.also ? extra.also(state, e, it, params, at, ctx) : null;
+      },
+    });
+    r.registerRecord(name, (state, rec) => {
+      const e = rec.payload, it = extra.get(state, e[key]);
+      for (const k of Object.keys(e)) if (fields[k]) apply ? apply(it, k, e[k], rec) : (it[k] = e[k]);
+      (it.amended ||= []).push({ at: rec.at, by: originOf(e), fields: Object.keys(e).filter(k => fields[k]) });
+    });
+  };
+  amend({ name: 'office.amend', of: 'offices', key: 'office', label: 'the office',
+    extra: { createKind: 'office.create', get: (s, id) => (s.m.offices?.[id]?.abolished ? null : s.m.offices?.[id]) },
+    fields: {
+      title: (v) => (typeof v === 'string' && v.trim() && v.length <= 80 ? null : 'a title is 1–80 characters'),
+      seats: (v, o, s) => (!Number.isInteger(v) || v < 1 || v > 50 ? 'seats must be a whole number from 1 to 50' : v < current(o, s.head.at || '').length ? `${current(o, s.head.at || '').length} people hold it now: vacate a seat first` : null),
+      term_days: (v) => (v === null || (Number.isInteger(v) && v >= 1) ? null : 'term_days is a whole number of days, or null for no term'),
+    } });
+
   const office = (state, id) => state.m.offices?.[id];
 
   r.registerEffect({
@@ -96,4 +126,4 @@ function install(r) {
   });
 }
 
-export default { name: 'offices', core: '0.4', install, holds, current, parameterKeys: ['offices.create_rule', 'offices.fill_rule', 'offices.term_limit'] };
+export default { name: 'offices', core: '0.7.7', install, holds, current, parameterKeys: ['offices.create_rule', 'offices.fill_rule', 'offices.term_limit'] };

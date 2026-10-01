@@ -64,3 +64,18 @@ test('agreements: a grant cannot admit an unsigned applicant, and the fund takes
   await sign('p-new');
   assert.equal((await use('admit', [{ kind: 'participant.admit', id: 'p-new' }])).applied.length, 1);
 });
+
+test('agreements: a drawn signature is sealed into the signed act; it can be required', async () => {
+  const { w, sign } = await club();
+  const P = (await import('../../kernel/parameters.js')).Parameters;
+  const v = () => agreements.current(w.state, 'partnership-agreement', new P(w.state.doc, w.state.catalog));
+  const signWith = async (by, extra) => w.settle(await w.sign('agreement.sign', by, { page: 'partnership-agreement', version: 1, text: agreements.fingerprint('partnership-agreement', v()), ...extra }));
+  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+  assert.match((await signWith('p-new', { drawing: 'data:image/svg+xml;base64,PHN2Zz4=' })).refused[0].reason, /must be a PNG/);
+  assert.match((await signWith('p-new', { drawing: 'data:image/png;base64,' + 'A'.repeat(90000) })).refused[0].reason, /too large/);
+  assert.equal((await signWith('p-new', { drawing: png })).applied.length, 1);
+  assert.equal(agreements.signaturesOf(w.state, 'p-new', 'partnership-agreement')[0].drawing, png);
+  await decide(w, { title: 'Draw it', rule: 'organic', changes: { 'agreements.drawn_signature': 'required' } });
+  assert.match((await signWith('p-0003', {})).refused[0].reason, /draw your signature/);
+  assert.equal((await signWith('p-0003', { drawing: png })).applied.length, 1);
+});

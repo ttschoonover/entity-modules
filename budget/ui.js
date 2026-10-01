@@ -12,7 +12,8 @@ export default function render(api) {
   const sec = h('section', {}, h('h2', {}, 'Budget'),
     h('p', { class: 'hint' }, `Money the members have approved, and what has been spent from it. ${lines.length ? `Open lines: ${fmt(tot)} approved, ${fmt(sp)} spent, ${fmt(tot - sp)} left.` : ''}`));
   sec.append(api.list({
-    key: 'budget', items: lines, noun: 'lines', empty: 'No budget lines yet.',
+    key: 'budget',
+    edit: (l) => (api.me?.status === 'active' && !l.closed ? api.editForm('Edit this line', [['title', 'Title', l.title], ['period', 'Period', l.period], ['note', 'Note', l.note, 'textarea']], (ch) => api.propose(`Amend the budget line ${l.title}`, [{ kind: 'budget.amend', line: l.id, ...ch }])) : null), items: lines, noun: 'lines', empty: 'No budget lines yet.',
     render: (l) => h('li', {}, h('h3', {}, l.title, l.period ? h('span', { class: 'category' }, l.period) : null),
       h('p', { class: 'meta' }, `${l.id} · ${fmt(spent(l))} of ${fmt(l.amount)} spent · ${fmt(left(l))} left${l.closed ? ` · closed ${day(l.closed)}` : ''} · approved by ${l.by}`),
       h('div', { class: 'bar', role: 'img', 'aria-label': `${fmt(spent(l))} of ${fmt(l.amount)} spent` }, h('i', { class: 'a', style: `width:${l.amount ? Math.min(100, (spent(l) / l.amount) * 100) : 0}%` })),
