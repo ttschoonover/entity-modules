@@ -25,3 +25,21 @@ parameters:
     changed_by: constitutional
     group: The Republic
     describe: The youngest age at which a person may become a citizen. The website asks applicants to confirm it. 16 meets the strictest age of digital consent in the EU; it may not go below 13.
+  republic.acronym:
+    value: ""
+    type: string
+    changed_by: constitutional
+    group: The Republic
+    describe: The acronym the entity goes by in its first official language (for example "ICHF"), shown beside its name. Empty means none.
+  republic.languages:
+    value: [en]
+    type: list
+    changed_by: constitutional
+    group: The Republic
+    describe: The official languages, as language codes (en, fr, es…), the first being the language of record. Its website offers each, and its founding texts are kept in each.
+  republic.names:
+    value: []
+    type: list
+    changed_by: constitutional
+    group: The Republic
+    describe: The name in each official language, as { lang, name, acronym, motto }. A language not listed uses the name, acronym and motto above.
